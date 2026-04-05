@@ -154,10 +154,33 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       el.style.backgroundColor = 'silver';
       el.style.boxShadow = '0 0 4px rgba(192, 192, 192, 0.6)';
 
+      const hoverPopup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 10,
+        className: 'marker-hover-popup'
+      });
+
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([landmark.coords[1], landmark.coords[0]])
-        .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(`<b>${landmark.name}</b><br>Landmark`))
         .addTo(map.current!);
+      
+      el.addEventListener('mouseenter', () => {
+        hoverPopup.setLngLat([landmark.coords[1], landmark.coords[0]])
+          .setHTML(`<div class="text-xs font-bold px-1">${landmark.name}</div>`)
+          .addTo(map.current!);
+      });
+
+      el.addEventListener('mouseleave', () => {
+        hoverPopup.remove();
+      });
+
+      el.addEventListener('click', () => {
+        new maplibregl.Popup({ offset: 10 })
+          .setLngLat([landmark.coords[1], landmark.coords[0]])
+          .setHTML(`<b>${landmark.name}</b><br>Landmark`)
+          .addTo(map.current!);
+      });
       
       markersRef.current.push(marker);
     });
@@ -172,10 +195,33 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       el.style.backgroundColor = 'orange';
       el.style.boxShadow = '0 0 8px rgba(249, 115, 22, 0.6)';
 
+      const hoverPopup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12,
+        className: 'marker-hover-popup'
+      });
+
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([city.coords[1], city.coords[0]])
-        .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(`<b>${city.name}</b><br>City`))
         .addTo(map.current!);
+
+      el.addEventListener('mouseenter', () => {
+        hoverPopup.setLngLat([city.coords[1], city.coords[0]])
+          .setHTML(`<div class="text-xs font-bold px-1">${city.name}</div>`)
+          .addTo(map.current!);
+      });
+
+      el.addEventListener('mouseleave', () => {
+        hoverPopup.remove();
+      });
+
+      el.addEventListener('click', () => {
+        new maplibregl.Popup({ offset: 12 })
+          .setLngLat([city.coords[1], city.coords[0]])
+          .setHTML(`<b>${city.name}</b><br>City`)
+          .addTo(map.current!);
+      });
       
       markersRef.current.push(marker);
     });

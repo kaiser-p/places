@@ -1,43 +1,53 @@
 import { useState } from 'react';
 import Map from './components/Map';
-import { MapPin, Landmark, Globe, Layers, Type, Menu, X, Trash2, Plus, Loader2 } from 'lucide-react';
+import { MapPin, Landmark as LandmarkIcon, Globe, Layers, Type, Menu, X, Trash2, Plus, Loader2 } from 'lucide-react';
 import { cities as initialCities, landmarks as initialLandmarks } from './data/mockData';
+import type { City, Landmark as LandmarkType } from './data/mockData';
+
+// Extend types with unique IDs
+interface CityWithId extends City { id: string; }
+interface LandmarkWithId extends LandmarkType { id: string; }
+
+const getFlagEmoji = (countryCode: string) => {
+  if (!countryCode || countryCode.length !== 2) return '';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+};
 
 function App() {
   const [isHomogenous, setIsHomogenous] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [myCities, setMyCities] = useState(initialCities);
-  const [myLandmarks, setMyLandmarks] = useState(initialLandmarks);
+  const [myCities, setMyCities] = useState<CityWithId[]>(
+    initialCities.map(c => ({ ...c, id: crypto.randomUUID() }))
+  );
+  const [myLandmarks, setMyLandmarks] = useState<LandmarkWithId[]>(
+    initialLandmarks.map(l => ({ ...l, id: crypto.randomUUID() }))
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const handleDeleteCity = (name: string) => {
-    setMyCities(myCities.filter(c => c.name !== name));
+  const handleDeleteCity = (id: string) => {
+    setMyCities(myCities.filter(c => c.id !== id));
   };
 
-  const handleDeleteLandmark = (name: string) => {
-    setMyLandmarks(myLandmarks.filter(l => l.name !== name));
+  const handleDeleteLandmark = (id: string) => {
+    setMyLandmarks(myLandmarks.filter(l => l.id !== id));
   };
 
-  const handleAddPlace = async () => {
+  const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
+    setSearchResults([]);
     try {
-      // Added addressdetails=1 to get the country code
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1`);
       const data = await response.json();
       if (data && data.length > 0) {
-        const { lat, lon, display_name, address } = data[0];
-        const name = display_name.split(',')[0];
-        const countryCode = address?.country_code?.toUpperCase() || '';
-        
-        setMyCities([...myCities, {
-          name,
-          coords: [parseFloat(lat), parseFloat(lon)],
-          countryCode
-        }]);
-        setSearchQuery('');
+        setSearchResults(data);
       } else {
         alert('Place not found');
       }
@@ -47,6 +57,33 @@ function App() {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const confirmAddPlace = (result: any) => {
+    const { lat, lon, display_name, address, addresstype, type, class: category } = result;
+    const name = display_name.split(',')[0];
+    const countryCode = address?.country_code?.toUpperCase() || '';
+    
+    // Detection logic for city vs landmark
+    const cityTypes = ['city', 'town', 'village', 'municipality', 'suburb'];
+    const isCity = cityTypes.includes(addresstype) || cityTypes.includes(type) || category === 'place';
+
+    if (isCity) {
+      setMyCities([...myCities, {
+        id: crypto.randomUUID(),
+        name,
+        coords: [parseFloat(lat), parseFloat(lon)],
+        countryCode
+      }]);
+    } else {
+      setMyLandmarks([...myLandmarks, {
+        id: crypto.randomUUID(),
+        name,
+        coords: [parseFloat(lat), parseFloat(lon)]
+      }]);
+    }
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   return (
@@ -81,7 +118,7 @@ function App() {
               <div className="w-3 h-3 rounded-full bg-silver shadow-[0_0_8px_rgba(192,192,192,0.4)]" style={{ backgroundColor: '#C0C0C0' }} />
               <div className="flex flex-col">
                 <span className="text-sm font-medium flex items-center gap-1.5">
-                  <Landmark size={14} className="text-gray-400" /> Landmarks
+                  <LandmarkIcon size={14} className="text-gray-400" /> Landmarks
                 </span>
                 <span className="text-xs text-gray-500">Key points of interest</span>
               </div>
@@ -146,7 +183,7 @@ function App() {
       </div>
 
       {/* Right-hand Sidebar */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-black/80 backdrop-blur-xl border-l border-white/10 z-[1000] text-white transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-xl border-l border-white/10 z-[1000] text-white transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
           <h2 className="text-xl font-bold mb-6 pt-10">Manage Places</h2>
           
@@ -157,18 +194,48 @@ function App() {
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddPlace()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search a place..."
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
               />
               <button 
-                onClick={handleAddPlace}
+                onClick={handleSearch}
                 disabled={isSearching}
                 className="bg-green-600 hover:bg-green-500 p-2 rounded-lg transition-colors disabled:opacity-50"
               >
                 {isSearching ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
               </button>
             </div>
+
+            {/* Search Results / Disambiguation */}
+            {searchResults.length > 0 && (
+              <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/20 space-y-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-bold uppercase text-green-500">Select the correct place</span>
+                  <button onClick={() => setSearchResults([])} className="text-gray-500 hover:text-white">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                  {searchResults.map((result, idx) => {
+                    const countryFlag = getFlagEmoji(result.address?.country_code);
+                    return (
+                      <button 
+                        key={idx}
+                        onClick={() => confirmAddPlace(result)}
+                        className="w-full text-left p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-xs border border-transparent hover:border-green-500/30 flex items-start gap-3"
+                      >
+                        <span className="text-lg leading-none mt-0.5">{countryFlag}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-200 truncate">{result.display_name.split(',')[0]}</div>
+                          <div className="text-gray-500 truncate text-[10px]">{result.display_name.split(',').slice(1).join(',').trim()}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Places List */}
@@ -180,10 +247,10 @@ function App() {
               </h3>
               <div className="space-y-2">
                 {myCities.map(city => (
-                  <div key={city.name} className="group flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                  <div key={city.id} className="group flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
                     <span className="text-sm truncate mr-2">{city.name}</span>
                     <button 
-                      onClick={() => handleDeleteCity(city.name)}
+                      onClick={() => handleDeleteCity(city.id)}
                       className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-all"
                     >
                       <Trash2 size={14} />
@@ -196,14 +263,14 @@ function App() {
             {/* Landmarks Section */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
-                <Landmark size={12} className="text-gray-400" /> Landmarks ({myLandmarks.length})
+                <LandmarkIcon size={12} className="text-gray-400" /> Landmarks ({myLandmarks.length})
               </h3>
               <div className="space-y-2">
                 {myLandmarks.map(landmark => (
-                  <div key={landmark.name} className="group flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                  <div key={landmark.id} className="group flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
                     <span className="text-sm truncate mr-2">{landmark.name}</span>
                     <button 
-                      onClick={() => handleDeleteLandmark(landmark.name)}
+                      onClick={() => handleDeleteLandmark(landmark.id)}
                       className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-all"
                     >
                       <Trash2 size={14} />
