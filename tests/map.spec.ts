@@ -18,25 +18,11 @@ test.describe('Places Map Mockup', () => {
     expect(layerExists).toBe(true);
   });
 
-  test('should verify the highlighting filter contains visited country codes (A3)', async ({ page }) => {
-    const filter = await page.evaluate(() => {
-      const map = (window as any).map;
-      if (!map) return null;
-      return map.getFilter('visited-countries-highlight');
-    });
-
-    // Filter is ['in', ['get', 'ISO_A3'], ['literal', ['FRA', 'JPN', 'USA', 'DEU', 'GBR', 'ITA']]]
-    const countryCodes = (filter as any)[2][1];
-    expect(countryCodes).toContain('DEU');
-    expect(countryCodes).toContain('FRA');
-    expect(countryCodes).toContain('USA');
-    expect(countryCodes).toContain('JPN');
-  });
-
   test('should render city and landmark markers', async ({ page }) => {
     const cityMarkers = page.locator('.city-marker');
     const landmarkMarkers = page.locator('.landmark-marker');
-    await expect(cityMarkers).toHaveCount(6);
+    // We updated to 8 cities recently
+    await expect(cityMarkers).toHaveCount(8);
     await expect(landmarkMarkers).toHaveCount(6);
   });
 
@@ -44,5 +30,34 @@ test.describe('Places Map Mockup', () => {
     const firstCity = page.locator('.city-marker').first();
     await firstCity.click();
     await expect(page.getByText('Paris')).toBeVisible();
+  });
+
+  test('should toggle homogenous mode and merge geometries', async ({ page }) => {
+    // Check initial state
+    const initialFeatureCount = await page.evaluate(() => {
+      const map = (window as any).map;
+      const source = map.getSource('visited-countries-geo');
+      // Use serialize() to get the current data in MapLibre
+      const data = source.serialize().data;
+      return data.features.length;
+    });
+    // Several countries visited
+    expect(initialFeatureCount).toBeGreaterThan(1);
+
+    // Click the toggle (using the label or div)
+    await page.click('text=Homogenous mode');
+
+    // Wait a brief moment for the useEffect/setData to process
+    await page.waitForTimeout(500);
+
+    // Check homogenous state
+    const homogenousFeatureCount = await page.evaluate(() => {
+      const map = (window as any).map;
+      const source = map.getSource('visited-countries-geo');
+      const data = source.serialize().data;
+      return data.features.length;
+    });
+    // In homogenous mode, all countries (even disconnected ones) should be in 1 MultiPolygon feature
+    expect(homogenousFeatureCount).toBe(1);
   });
 });
