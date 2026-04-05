@@ -1,9 +1,21 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
+
+async function waitForMapReady(page: Page) {
+  await page.evaluate(async () => {
+    const map = (window as any).map;
+    if (!map) return;
+    if (map.isStyleLoaded()) return;
+    return new Promise(resolve => {
+      map.once('idle', resolve);
+    });
+  });
+}
 
 test.describe('Places Map Mockup', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
+    await waitForMapReady(page);
   });
 
   test('should display the map and the highlighting layer', async ({ page }) => {
@@ -29,7 +41,8 @@ test.describe('Places Map Mockup', () => {
   test('should show popups on marker click', async ({ page }) => {
     const firstCity = page.locator('.city-marker').first();
     await firstCity.click();
-    await expect(page.getByText('Paris')).toBeVisible();
+    // Be specific to the popup to avoid finding the sidebar entry
+    await expect(page.locator('.maplibregl-popup-content').getByText('Paris')).toBeVisible();
   });
 
   test('should toggle homogenous mode and merge geometries', async ({ page }) => {
@@ -37,24 +50,26 @@ test.describe('Places Map Mockup', () => {
     const initialFeatureCount = await page.evaluate(() => {
       const map = (window as any).map;
       const source = map.getSource('visited-countries-geo');
+      if (!source) return 0;
       // Use serialize() to get the current data in MapLibre
-      const data = source.serialize().data;
+      const data = (source as any).serialize().data;
       return data.features.length;
     });
     // Several countries visited
     expect(initialFeatureCount).toBeGreaterThan(1);
 
-    // Click the toggle (using the label or div)
-    await page.click('text=Homogenous mode');
+    // Click the toggle button
+    await page.getByText('Homogenous mode').click();
 
-    // Wait a brief moment for the useEffect/setData to process
-    await page.waitForTimeout(500);
+    // Wait for the source to update
+    await page.waitForTimeout(1500);
 
     // Check homogenous state
     const homogenousFeatureCount = await page.evaluate(() => {
       const map = (window as any).map;
       const source = map.getSource('visited-countries-geo');
-      const data = source.serialize().data;
+      if (!source) return 0;
+      const data = (source as any).serialize().data;
       return data.features.length;
     });
     // In homogenous mode, all countries (even disconnected ones) should be in 1 MultiPolygon feature

@@ -1,29 +1,35 @@
 import { useEffect, useRef, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { cities, landmarks } from '../data/mockData';
 import worldData from '../data/world.json';
 import type { FeatureCollection, Geometry, Feature, Polygon, MultiPolygon } from 'geojson';
 import { union, featureCollection } from '@turf/turf';
+import type { City, Landmark } from '../data/mockData';
 
 interface MapProps {
   isHomogenous: boolean;
   showLabels: boolean;
+  cities: City[];
+  landmarks: Landmark[];
 }
 
-const Map = ({ isHomogenous, showLabels }: MapProps) => {
+const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   // Memoize visited country codes and merged geometry
   const visitedCountryCodes = useMemo(() => 
-    Array.from(new Set(cities.map(c => c.countryCode))),
-  []);
+    Array.from(new Set(cities.map(c => c.countryCode).filter(Boolean))),
+  [cities]);
 
   const mergedVisitedGeo = useMemo(() => {
     const visitedFeatures = (worldData as FeatureCollection<Geometry, any>).features.filter(
-      f => visitedCountryCodes.includes(f.properties?.ISO_A3)
+      f => visitedCountryCodes.includes(f.properties?.ISO_A3) || 
+           visitedCountryCodes.includes(f.properties?.ISO_A2) ||
+           visitedCountryCodes.includes(f.properties?.ADM0_A3)
     );
+    if (visitedFeatures.length === 0) return null;
     // Turf 7+ union takes a featureCollection
     return union(featureCollection(visitedFeatures as Feature<Polygon | MultiPolygon, any>[]));
   }, [visitedCountryCodes]);
@@ -88,7 +94,11 @@ const Map = ({ isHomogenous, showLabels }: MapProps) => {
             id: 'visited-countries-highlight',
             type: 'fill',
             source: 'visited-countries-geo',
-            filter: isHomogenous ? undefined : ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
+            filter: isHomogenous ? undefined : ['any', 
+              ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
+              ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
+              ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
+            ],
             paint: {
               'fill-color': '#10b981',
               'fill-opacity': 0.3
@@ -98,7 +108,11 @@ const Map = ({ isHomogenous, showLabels }: MapProps) => {
             id: 'visited-countries-outline',
             type: 'line',
             source: 'visited-countries-geo',
-            filter: isHomogenous ? undefined : ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
+            filter: isHomogenous ? undefined : ['any', 
+              ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
+              ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
+              ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
+            ],
             paint: {
               'line-color': '#10b981',
               'line-width': 1.5,
@@ -114,42 +128,6 @@ const Map = ({ isHomogenous, showLabels }: MapProps) => {
     // Expose map to window for testing
     (window as any).map = map.current;
 
-    map.current.on('load', () => {
-      if (!map.current) return;
-
-      // Add Landmarks
-      landmarks.forEach((landmark) => {
-        const el = document.createElement('div');
-        el.className = 'landmark-marker cursor-pointer';
-        el.style.width = '6px';
-        el.style.height = '6px';
-        el.style.borderRadius = '50%';
-        el.style.backgroundColor = 'silver';
-        el.style.boxShadow = '0 0 4px rgba(192, 192, 192, 0.6)';
-
-        new maplibregl.Marker({ element: el })
-          .setLngLat([landmark.coords[1], landmark.coords[0]])
-          .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(`<b>${landmark.name}</b><br>Landmark`))
-          .addTo(map.current!);
-      });
-
-      // Add Cities
-      cities.forEach((city) => {
-        const el = document.createElement('div');
-        el.className = 'city-marker cursor-pointer';
-        el.style.width = '10px';
-        el.style.height = '10px';
-        el.style.borderRadius = '50%';
-        el.style.backgroundColor = 'orange';
-        el.style.boxShadow = '0 0 8px rgba(249, 115, 22, 0.6)';
-
-        new maplibregl.Marker({ element: el })
-          .setLngLat([city.coords[1], city.coords[0]])
-          .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(`<b>${city.name}</b><br>City`))
-          .addTo(map.current!);
-      });
-    });
-
     return () => {
       if (map.current) {
         map.current.remove();
@@ -157,6 +135,51 @@ const Map = ({ isHomogenous, showLabels }: MapProps) => {
       }
     };
   }, []);
+
+  // Update markers when cities or landmarks change
+  useEffect(() => {
+    if (!map.current) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    // Add Landmarks
+    landmarks.forEach((landmark) => {
+      const el = document.createElement('div');
+      el.className = 'landmark-marker cursor-pointer';
+      el.style.width = '6px';
+      el.style.height = '6px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = 'silver';
+      el.style.boxShadow = '0 0 4px rgba(192, 192, 192, 0.6)';
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([landmark.coords[1], landmark.coords[0]])
+        .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(`<b>${landmark.name}</b><br>Landmark`))
+        .addTo(map.current!);
+      
+      markersRef.current.push(marker);
+    });
+
+    // Add Cities
+    cities.forEach((city) => {
+      const el = document.createElement('div');
+      el.className = 'city-marker cursor-pointer';
+      el.style.width = '10px';
+      el.style.height = '10px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = 'orange';
+      el.style.boxShadow = '0 0 8px rgba(249, 115, 22, 0.6)';
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([city.coords[1], city.coords[0]])
+        .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML(`<b>${city.name}</b><br>City`))
+        .addTo(map.current!);
+      
+      markersRef.current.push(marker);
+    });
+  }, [cities, landmarks]);
 
   // Update styling when labels toggle changes
   useEffect(() => {
@@ -174,7 +197,7 @@ const Map = ({ isHomogenous, showLabels }: MapProps) => {
     }
   }, [showLabels]);
 
-  // Update styling and data when homogenous mode changes
+  // Update styling and data when homogenous mode changes or cities change
   useEffect(() => {
     if (map.current && map.current.isStyleLoaded()) {
       const source = map.current.getSource('visited-countries-geo') as maplibregl.GeoJSONSource;
@@ -190,7 +213,12 @@ const Map = ({ isHomogenous, showLabels }: MapProps) => {
         map.current.setPaintProperty('visited-countries-outline', 'line-opacity', 0);
       } else {
         source.setData(worldData as FeatureCollection<Geometry, any>);
-        const filter = ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]] as maplibregl.FilterSpecification;
+        // Support ISO_A3, ISO_A2, and ADM0_A3 (for dataset inconsistencies like France)
+        const filter = ['any', 
+          ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
+          ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
+          ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
+        ] as maplibregl.FilterSpecification;
         map.current.setFilter('visited-countries-highlight', filter);
         map.current.setFilter('visited-countries-outline', filter);
         map.current.setPaintProperty('visited-countries-outline', 'line-opacity', 0.5);
