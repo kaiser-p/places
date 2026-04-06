@@ -59,16 +59,18 @@ function App() {
     }
   };
 
+  const isCityResult = (result: any) => {
+    const { addresstype, type, class: category } = result;
+    const cityTypes = ['city', 'town', 'village', 'municipality', 'suburb'];
+    return cityTypes.includes(addresstype) || cityTypes.includes(type) || category === 'place';
+  };
+
   const confirmAddPlace = (result: any) => {
-    const { lat, lon, display_name, address, addresstype, type, class: category } = result;
+    const { lat, lon, display_name, address } = result;
     const name = display_name.split(',')[0];
     const countryCode = address?.country_code?.toUpperCase() || '';
     
-    // Detection logic for city vs landmark
-    const cityTypes = ['city', 'town', 'village', 'municipality', 'suburb'];
-    const isCity = cityTypes.includes(addresstype) || cityTypes.includes(type) || category === 'place';
-
-    if (isCity) {
+    if (isCityResult(result)) {
       setMyCities([...myCities, {
         id: crypto.randomUUID(),
         name,
@@ -84,6 +86,16 @@ function App() {
     }
     setSearchQuery('');
     setSearchResults([]);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (searchResults.length > 0) {
+        confirmAddPlace(searchResults[0]);
+      } else {
+        handleSearch();
+      }
+    }
   };
 
   return (
@@ -194,7 +206,7 @@ function App() {
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={handleKeyDown}
                 placeholder="Search a place..."
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
               />
@@ -219,6 +231,7 @@ function App() {
                 <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                   {searchResults.map((result, idx) => {
                     const countryFlag = getFlagEmoji(result.address?.country_code);
+                    const isCity = isCityResult(result);
                     return (
                       <button 
                         key={idx}
@@ -227,7 +240,14 @@ function App() {
                       >
                         <span className="text-lg leading-none mt-0.5">{countryFlag}</span>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-200 truncate">{result.display_name.split(',')[0]}</div>
+                          <div className="font-semibold text-gray-200 truncate flex items-center gap-1.5">
+                            {result.display_name.split(',')[0]}
+                            {isCity ? (
+                              <MapPin size={12} className="text-orange-500 shrink-0" />
+                            ) : (
+                              <LandmarkIcon size={12} className="text-gray-400 shrink-0" />
+                            )}
+                          </div>
                           <div className="text-gray-500 truncate text-[10px]">{result.display_name.split(',').slice(1).join(',').trim()}</div>
                         </div>
                       </button>
