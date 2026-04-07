@@ -6,7 +6,7 @@
 
 A modern, interactive map application to track your travels, manage visited cities, and visualize your global footprint. Built with React, MapLibre GL, and Supabase.
 
-![Places Preview](src/assets/hero.png)
+> **Note**: This site is the result of a vibecoding experiment.
 
 ## 🌟 Features
 
