@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/assets/logo.jpg" alt="Places Logo" width="200" />
+</p>
+
 # Places
 
 A modern, interactive map application to track your travels, manage visited cities, and visualize your global footprint. Built with React, MapLibre GL, and Supabase.
