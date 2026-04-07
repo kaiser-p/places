@@ -2,6 +2,7 @@ export interface City {
   name: string;
   coords: [number, number];
   countryCode: string;
+  size?: 'small' | 'medium' | 'large';
 }
 
 export interface Landmark {
@@ -10,14 +11,14 @@ export interface Landmark {
 }
 
 export const cities: City[] = [
-  { name: "Paris", coords: [48.8566, 2.3522], countryCode: "FRA" },
-  { name: "Tokyo", coords: [35.6762, 139.6503], countryCode: "JPN" },
-  { name: "New York", coords: [40.7128, -74.006], countryCode: "USA" },
-  { name: "Berlin", coords: [52.52, 13.405], countryCode: "DEU" },
-  { name: "London", coords: [51.5074, -0.1278], countryCode: "GBR" },
-  { name: "Rome", coords: [41.9028, 12.4964], countryCode: "ITA" },
-  { name: "Zurich", coords: [47.3769, 8.5417], countryCode: "CHE" },
-  { name: "Vienna", coords: [48.2082, 16.3738], countryCode: "AUT" },
+  { name: "Paris", coords: [48.8566, 2.3522], countryCode: "FRA", size: 'large' },
+  { name: "Tokyo", coords: [35.6762, 139.6503], countryCode: "JPN", size: 'large' },
+  { name: "New York", coords: [40.7128, -74.006], countryCode: "USA", size: 'large' },
+  { name: "Berlin", coords: [52.52, 13.405], countryCode: "DEU", size: 'large' },
+  { name: "London", coords: [51.5074, -0.1278], countryCode: "GBR", size: 'large' },
+  { name: "Rome", coords: [41.9028, 12.4964], countryCode: "ITA", size: 'medium' },
+  { name: "Zurich", coords: [47.3769, 8.5417], countryCode: "CHE", size: 'medium' },
+  { name: "Vienna", coords: [48.2082, 16.3738], countryCode: "AUT", size: 'medium' },
 ];
 
 export const landmarks: Landmark[] = [

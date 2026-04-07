@@ -77,7 +77,13 @@ function App() {
     if (data) {
       const cities = data
         .filter(p => p.type === 'city')
-        .map(p => ({ id: p.id, name: p.name, coords: p.coords as [number, number], countryCode: p.country_code || '' }));
+        .map(p => ({ 
+          id: p.id, 
+          name: p.name, 
+          coords: p.coords as [number, number], 
+          countryCode: p.country_code || '',
+          size: p.size as 'small' | 'medium' | 'large' | undefined
+        }));
       const landmarks = data
         .filter(p => p.type === 'landmark')
         .map(p => ({ id: p.id, name: p.name, coords: p.coords as [number, number] }));
@@ -116,7 +122,8 @@ function App() {
         name: c.name, 
         type: 'city', 
         coords: c.coords, 
-        country_code: c.countryCode 
+        country_code: c.countryCode,
+        size: c.size
       })),
       ...myLandmarks.map(l => ({ 
         user_id: session.user.id, 
@@ -176,11 +183,18 @@ function App() {
   };
 
   const confirmAddPlace = async (result: any) => {
-    const { lat, lon, display_name, address } = result;
+    const { lat, lon, display_name, address, importance: imp } = result;
     const name = display_name.split(',')[0];
     const countryCode = address?.country_code?.toUpperCase() || '';
     const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
     const isCity = isCityResult(result);
+    const importance = imp || 0;
+
+    let size: 'small' | 'medium' | 'large' = 'small';
+    if (isCity) {
+      if (importance > 0.7) size = 'large';
+      else if (importance > 0.4) size = 'medium';
+    }
 
     if (session) {
       const { data, error } = await supabase.from('places').insert({
@@ -188,13 +202,14 @@ function App() {
         name,
         type: isCity ? 'city' : 'landmark',
         coords,
-        country_code: isCity ? countryCode : null
+        country_code: isCity ? countryCode : null,
+        size: isCity ? size : null
       }).select();
 
       if (error) alert('Error saving: ' + error.message);
       else if (data) {
         if (isCity) {
-          setMyCities([...myCities, { id: data[0].id, name, coords, countryCode }]);
+          setMyCities([...myCities, { id: data[0].id, name, coords, countryCode, size }]);
         } else {
           setMyLandmarks([...myLandmarks, { id: data[0].id, name, coords }]);
         }
@@ -202,7 +217,7 @@ function App() {
     } else {
       // Mockup logic
       if (isCity) {
-        setMyCities([...myCities, { id: crypto.randomUUID(), name, coords, countryCode }]);
+        setMyCities([...myCities, { id: crypto.randomUUID(), name, coords, countryCode, size }]);
       } else {
         setMyLandmarks([...myLandmarks, { id: crypto.randomUUID(), name, coords }]);
       }

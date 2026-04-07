@@ -188,16 +188,20 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
     cities.forEach((city) => {
       const el = document.createElement('div');
       el.className = 'city-marker cursor-pointer';
-      el.style.width = '10px';
-      el.style.height = '10px';
+      
+      const sizePx = city.size === 'large' ? '16px' : city.size === 'small' ? '6px' : '10px';
+      const offset = city.size === 'large' ? 15 : city.size === 'small' ? 10 : 12;
+
+      el.style.width = sizePx;
+      el.style.height = sizePx;
       el.style.borderRadius = '50%';
       el.style.backgroundColor = 'orange';
-      el.style.boxShadow = '0 0 8px rgba(249, 115, 22, 0.6)';
+      el.style.boxShadow = `0 0 ${city.size === 'large' ? '12px' : city.size === 'small' ? '6px' : '8px'} rgba(249, 115, 22, 0.6)`;
 
       const hoverPopup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false,
-        offset: 12,
+        offset: offset,
         className: 'marker-hover-popup'
       });
 
@@ -216,7 +220,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       });
 
       el.addEventListener('click', () => {
-        new maplibregl.Popup({ offset: 12 })
+        new maplibregl.Popup({ offset: offset })
           .setLngLat([city.coords[1], city.coords[0]])
           .setHTML(`<b>${city.name}</b><br>City`)
           .addTo(map.current!);
