@@ -30,12 +30,19 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
            visitedCountryCodes.includes(f.properties?.ADM0_A3)
     );
     if (visitedFeatures.length === 0) return null;
+    if (visitedFeatures.length === 1) return visitedFeatures[0] as Feature<Polygon | MultiPolygon, any>;
     // Turf 7+ union takes a featureCollection
     return union(featureCollection(visitedFeatures as Feature<Polygon | MultiPolygon, any>[]));
   }, [visitedCountryCodes]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
+
+    const highlightFilter = ['any', 
+      ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
+      ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
+      ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
+    ] as any;
 
     // Initialize MapLibre with Raster Tiles for maximum reliability
     map.current = new maplibregl.Map({
@@ -94,11 +101,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
             id: 'visited-countries-highlight',
             type: 'fill',
             source: 'visited-countries-geo',
-            filter: isHomogenous ? undefined : ['any', 
-              ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
-              ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
-              ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
-            ],
+            ...(isHomogenous ? {} : { filter: highlightFilter }),
             paint: {
               'fill-color': '#10b981',
               'fill-opacity': 0.3
@@ -108,11 +111,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
             id: 'visited-countries-outline',
             type: 'line',
             source: 'visited-countries-geo',
-            filter: isHomogenous ? undefined : ['any', 
-              ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
-              ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
-              ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
-            ],
+            ...(isHomogenous ? {} : { filter: highlightFilter }),
             paint: {
               'line-color': '#10b981',
               'line-width': 1.5,

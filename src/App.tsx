@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Map from './components/Map';
-import { MapPin, Landmark as LandmarkIcon, Globe, Layers, Type, Menu, X, Trash2, Plus, Loader2 } from 'lucide-react';
+import { MapPin, Landmark as LandmarkIcon, Globe, Layers, Type, Menu, X, Trash2, Plus, Loader2, User, LogOut } from 'lucide-react';
 import { cities as initialCities, landmarks as initialLandmarks } from './data/mockData';
 import type { City, Landmark as LandmarkType } from './data/mockData';
+import { supabase } from './lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 // Extend types with unique IDs
 interface CityWithId extends City { id: string; }
@@ -19,8 +21,17 @@ const getFlagEmoji = (countryCode: string) => {
 
 function App() {
   const [isHomogenous, setIsHomogenous] = useState(false);
-  const [showLabels, setShowLabels] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  
+  // Auth & Data State
+  const [session, setSession] = useState<Session | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const [myCities, setMyCities] = useState<CityWithId[]>(
     initialCities.map(c => ({ ...c, id: crypto.randomUUID() }))
   );
@@ -31,12 +42,111 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const handleDeleteCity = (id: string) => {
-    setMyCities(myCities.filter(c => c.id !== id));
+  // Auth Subscription
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch Data from Supabase
+  useEffect(() => {
+    if (session) {
+      fetchUserPlaces();
+    }
+  }, [session]);
+
+  const fetchUserPlaces = async () => {
+    const { data, error } = await supabase
+      .from('places')
+      .select('*');
+    
+    if (error) {
+      console.error('Error fetching places:', error);
+      return;
+    }
+
+    if (data) {
+      const cities = data
+        .filter(p => p.type === 'city')
+        .map(p => ({ id: p.id, name: p.name, coords: p.coords as [number, number], countryCode: p.country_code || '' }));
+      const landmarks = data
+        .filter(p => p.type === 'landmark')
+        .map(p => ({ id: p.id, name: p.name, coords: p.coords as [number, number] }));
+      
+      setMyCities(cities);
+      setMyLandmarks(landmarks);
+    }
   };
 
-  const handleDeleteLandmark = (id: string) => {
+  const handleAuth = async (type: 'login' | 'signup') => {
+    setIsAuthLoading(true);
+    const { error } = type === 'login' 
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password });
+
+    if (error) alert(error.message);
+    else setIsUserMenuOpen(false);
+    setIsAuthLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsUserMenuOpen(false);
+    // Reset to mockup data on logout
+    setMyCities(initialCities.map(c => ({ ...c, id: crypto.randomUUID() })));
+    setMyLandmarks(initialLandmarks.map(l => ({ ...l, id: crypto.randomUUID() })));
+  };
+
+  const syncLocalToCloud = async () => {
+    if (!session) return;
+    setIsSyncing(true);
+    
+    const placesToUpload = [
+      ...myCities.map(c => ({ 
+        user_id: session.user.id, 
+        name: c.name, 
+        type: 'city', 
+        coords: c.coords, 
+        country_code: c.countryCode 
+      })),
+      ...myLandmarks.map(l => ({ 
+        user_id: session.user.id, 
+        name: l.name, 
+        type: 'landmark', 
+        coords: l.coords 
+      }))
+    ];
+
+    const { error } = await supabase.from('places').insert(placesToUpload);
+    if (error) alert('Sync failed: ' + error.message);
+    else {
+      alert('Local places synced to your account!');
+      fetchUserPlaces();
+    }
+    setIsSyncing(false);
+  };
+
+  const handleDeleteCity = async (id: string) => {
+    setMyCities(myCities.filter(c => c.id !== id));
+    if (session) {
+      await supabase.from('places').delete().eq('id', id);
+    }
+  };
+
+  const handleDeleteLandmark = async (id: string) => {
     setMyLandmarks(myLandmarks.filter(l => l.id !== id));
+    if (session) {
+      await supabase.from('places').delete().eq('id', id);
+    }
   };
 
   const handleSearch = async () => {
@@ -65,24 +175,37 @@ function App() {
     return cityTypes.includes(addresstype) || cityTypes.includes(type) || category === 'place';
   };
 
-  const confirmAddPlace = (result: any) => {
+  const confirmAddPlace = async (result: any) => {
     const { lat, lon, display_name, address } = result;
     const name = display_name.split(',')[0];
     const countryCode = address?.country_code?.toUpperCase() || '';
-    
-    if (isCityResult(result)) {
-      setMyCities([...myCities, {
-        id: crypto.randomUUID(),
+    const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
+    const isCity = isCityResult(result);
+
+    if (session) {
+      const { data, error } = await supabase.from('places').insert({
+        user_id: session.user.id,
         name,
-        coords: [parseFloat(lat), parseFloat(lon)],
-        countryCode
-      }]);
+        type: isCity ? 'city' : 'landmark',
+        coords,
+        country_code: isCity ? countryCode : null
+      }).select();
+
+      if (error) alert('Error saving: ' + error.message);
+      else if (data) {
+        if (isCity) {
+          setMyCities([...myCities, { id: data[0].id, name, coords, countryCode }]);
+        } else {
+          setMyLandmarks([...myLandmarks, { id: data[0].id, name, coords }]);
+        }
+      }
     } else {
-      setMyLandmarks([...myLandmarks, {
-        id: crypto.randomUUID(),
-        name,
-        coords: [parseFloat(lat), parseFloat(lon)]
-      }]);
+      // Mockup logic
+      if (isCity) {
+        setMyCities([...myCities, { id: crypto.randomUUID(), name, coords, countryCode }]);
+      } else {
+        setMyLandmarks([...myLandmarks, { id: crypto.randomUUID(), name, coords }]);
+      }
     }
     setSearchQuery('');
     setSearchResults([]);
@@ -99,7 +222,7 @@ function App() {
   };
 
   return (
-    <div className="relative w-full h-screen bg-[#191a1a] overflow-hidden flex">
+    <div className="relative w-full h-screen bg-[#191a1a] overflow-hidden">
       {/* Sidebar Toggle Button */}
       <button 
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -109,7 +232,7 @@ function App() {
       </button>
 
       {/* Main Content Area */}
-      <div className="relative flex-1 h-full overflow-hidden">
+      <div className="relative w-full h-full overflow-hidden">
         {/* Floating Header & Legend */}
         <div className="absolute top-6 left-6 z-[1000] p-6 bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl max-w-xs text-white">
           <h1 className="text-2xl font-bold tracking-tight mb-2">My Places</h1>
@@ -146,49 +269,128 @@ function App() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Configuration Panel */}
-          <div className="pt-6 border-t border-white/10 space-y-4">
-            <div 
-              className="flex items-center justify-between cursor-pointer group"
-              onClick={() => setIsHomogenous(!isHomogenous)}
-            >
-              <div className="flex items-center gap-2">
-                <Layers size={16} className={`transition-colors ${isHomogenous ? 'text-green-500' : 'text-gray-500'}`} />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Homogenous mode</span>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Remove internal borders</span>
+        {/* User Menu */}
+        <div className="absolute top-6 right-20 z-[1001]">
+          <button 
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="p-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full shadow-2xl text-white hover:bg-white/10 transition-colors flex items-center justify-center"
+          >
+            <User size={24} />
+          </button>
+          
+          {isUserMenuOpen && (
+            <div className="absolute top-full right-0 mt-4 w-72 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-5 text-white overflow-hidden">
+              <div className="space-y-6">
+                {!session ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User size={18} className="text-gray-400" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider">Authentication</h3>
+                    </div>
+                    <input 
+                      type="email" 
+                      placeholder="Email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
+                    />
+                    <input 
+                      type="password" 
+                      placeholder="Password" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => handleAuth('login')}
+                        disabled={isAuthLoading}
+                        className="bg-white/10 hover:bg-white/20 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {isAuthLoading ? '...' : 'Login'}
+                      </button>
+                      <button 
+                        onClick={() => handleAuth('signup')}
+                        disabled={isAuthLoading}
+                        className="bg-green-600 hover:bg-green-500 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 text-center">
+                      Login to sync your places across devices.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Account</span>
+                      <span className="text-sm font-medium truncate max-w-[140px]">{session.user.email}</span>
+                    </div>
+                    <button 
+                      onClick={handleLogout}
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      title="Logout"
+                    >
+                      <LogOut size={18} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Map Settings</h3>
+                  
+                  <div 
+                    className="flex items-center justify-between cursor-pointer group"
+                    onClick={() => setIsHomogenous(!isHomogenous)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers size={16} className={`transition-colors ${isHomogenous ? 'text-green-500' : 'text-gray-500'}`} />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">Homogenous mode</span>
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider leading-tight">Merged borders</span>
+                      </div>
+                    </div>
+                    <div className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isHomogenous ? 'bg-green-500' : 'bg-gray-700'}`}>
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isHomogenous ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                  </div>
+
+                  <div 
+                    className="flex items-center justify-between cursor-pointer group"
+                    onClick={() => setShowLabels(!showLabels)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Type size={16} className={`transition-colors ${showLabels ? 'text-green-500' : 'text-gray-500'}`} />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">Map Labels</span>
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider leading-tight">Names visible</span>
+                      </div>
+                    </div>
+                    <div className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${showLabels ? 'bg-green-500' : 'bg-gray-700'}`}>
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${showLabels ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div 
-                className={`relative inline-flex h-5 w-10 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isHomogenous ? 'bg-green-500' : 'bg-gray-700'}`}
-              >
-                <span 
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isHomogenous ? 'translate-x-5' : 'translate-x-0'}`}
-                />
+
+                {session && (
+                  <div className="pt-4 border-t border-white/10">
+                    <button 
+                      onClick={syncLocalToCloud}
+                      disabled={isSyncing}
+                      className="w-full bg-white/5 hover:bg-white/10 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-green-500 transition-all flex items-center justify-center gap-2"
+                    >
+                      {isSyncing ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
+                      Sync Local to Account
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-
-            <div 
-              className="flex items-center justify-between cursor-pointer group"
-              onClick={() => setShowLabels(!showLabels)}
-            >
-              <div className="flex items-center gap-2">
-                <Type size={16} className={`transition-colors ${showLabels ? 'text-green-500' : 'text-gray-500'}`} />
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold">Map Labels</span>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">City and country names</span>
-                </div>
-              </div>
-              <div 
-                className={`relative inline-flex h-5 w-10 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${showLabels ? 'bg-green-500' : 'bg-gray-700'}`}
-              >
-                <span 
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${showLabels ? 'translate-x-5' : 'translate-x-0'}`}
-                />
-              </div>
-            </div>
-          </div>        </div>
+          )}
+        </div>
 
         {/* Main Map */}
         <Map isHomogenous={isHomogenous} showLabels={showLabels} cities={myCities} landmarks={myLandmarks} />

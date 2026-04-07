@@ -58,6 +58,9 @@ test.describe('Places Map Mockup', () => {
     // Several countries visited
     expect(initialFeatureCount).toBeGreaterThan(1);
 
+    // Open user menu to access settings
+    await page.locator('button').filter({ has: page.locator('svg.lucide-user') }).click();
+
     // Click the toggle button
     await page.getByText('Homogenous mode').click();
 
