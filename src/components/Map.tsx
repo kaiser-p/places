@@ -27,7 +27,9 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
     const visitedFeatures = (worldData as FeatureCollection<Geometry, any>).features.filter(
       f => visitedCountryCodes.includes(f.properties?.ISO_A3) || 
            visitedCountryCodes.includes(f.properties?.ISO_A2) ||
-           visitedCountryCodes.includes(f.properties?.ADM0_A3)
+           visitedCountryCodes.includes(f.properties?.ADM0_A3) ||
+           visitedCountryCodes.includes(f.properties?.SOV_A3) ||
+           (f.properties?.SOVEREIGNT === 'France' && visitedCountryCodes.includes('FR'))
     );
     if (visitedFeatures.length === 0) return null;
     if (visitedFeatures.length === 1) return visitedFeatures[0] as Feature<Polygon | MultiPolygon, any>;
@@ -41,8 +43,14 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
     const highlightFilter = ['any', 
       ['in', ['get', 'ISO_A3'], ['literal', visitedCountryCodes]],
       ['in', ['get', 'ISO_A2'], ['literal', visitedCountryCodes]],
-      ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]]
+      ['in', ['get', 'ADM0_A3'], ['literal', visitedCountryCodes]],
+      ['in', ['get', 'SOV_A3'], ['literal', visitedCountryCodes]]
     ] as any;
+
+    // Specific hack for France in filters
+    if (visitedCountryCodes.includes('FR') || visitedCountryCodes.includes('FRA')) {
+      highlightFilter.push(['==', ['get', 'SOVEREIGNT'], 'France']);
+    }
 
     // Initialize MapLibre with Raster Tiles for maximum reliability
     map.current = new maplibregl.Map({
@@ -189,14 +197,20 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       const el = document.createElement('div');
       el.className = 'city-marker cursor-pointer';
       
-      const sizePx = city.size === 'large' ? '16px' : city.size === 'small' ? '6px' : '10px';
-      const offset = city.size === 'large' ? 15 : city.size === 'small' ? 10 : 12;
+      const sizePx = city.size === 'large' ? '10px' : city.size === 'small' ? '4px' : '7px';
+      const offset = city.size === 'large' ? 12 : city.size === 'small' ? 8 : 10;
 
       el.style.width = sizePx;
       el.style.height = sizePx;
       el.style.borderRadius = '50%';
       el.style.backgroundColor = 'orange';
-      el.style.boxShadow = `0 0 ${city.size === 'large' ? '12px' : city.size === 'small' ? '6px' : '8px'} rgba(249, 115, 22, 0.6)`;
+      el.style.boxShadow = `0 0 ${city.size === 'large' ? '8px' : city.size === 'small' ? '4px' : '6px'} rgba(249, 115, 22, 0.6)`;
+
+      // Ensure small markers are still easily clickable
+      if (city.size === 'small') {
+        el.style.border = '4px solid transparent';
+        el.style.backgroundClip = 'padding-box';
+      }
 
       const hoverPopup = new maplibregl.Popup({
         closeButton: false,
