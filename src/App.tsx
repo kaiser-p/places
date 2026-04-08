@@ -5,6 +5,7 @@ import { cities as initialCities, landmarks as initialLandmarks } from './data/m
 import type { City, Landmark as LandmarkType } from './data/mockData';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
+import logoDark from './assets/logo_dark.png';
 
 // Extend types with unique IDs
 interface CityWithId extends City { id: string; }
@@ -20,7 +21,7 @@ const getFlagEmoji = (countryCode: string) => {
 };
 
 function App() {
-  const [isHomogenous, setIsHomogenous] = useState(false);
+  const [isHomogenous, setIsHomogenous] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -406,6 +407,25 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Login Splash Overlay */}
+        {!session && (
+          <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
+            <div className="bg-[#000000] p-20 rounded-[48px] border border-white/10 flex flex-col items-center animate-in fade-in zoom-in duration-700 pointer-events-auto shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+              <img src={logoDark} alt="Places" className="w-96 h-auto mb-10" />
+              <div className="text-center space-y-4">
+                <h2 className="text-4xl font-black tracking-tighter text-white">Welcome to Places</h2>
+                <p className="text-gray-400 text-lg max-w-[400px] leading-relaxed">Sign in to start mapping your journey across the globe and sync your travels.</p>
+              </div>
+              <button 
+                onClick={() => setIsUserMenuOpen(true)}
+                className="mt-12 bg-green-600 hover:bg-green-500 text-white px-12 py-4 rounded-full text-xl font-bold transition-all transform hover:scale-105 shadow-xl flex items-center gap-3"
+              >
+                Get Started
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Main Map */}
         <Map isHomogenous={isHomogenous} showLabels={showLabels} cities={myCities} landmarks={myLandmarks} />

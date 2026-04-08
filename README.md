@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/assets/logo.jpg" alt="Places Logo" width="200" />
+  <img src="src/assets/logo_light.png" alt="Places Logo" width="200" />
 </p>
 
 # Places
