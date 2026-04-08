@@ -105,6 +105,10 @@ This app is configured for deployment to **GitHub Pages** via GitHub Actions.
 2.  Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as **GitHub Actions Secrets** in your repository settings.
 3.  Ensure the "Pages" source is set to "GitHub Actions" in the repository settings.
 
+## 🗺️ Data Sources
+
+-   **Country Borders**: The `src/data/world.json` file is sourced from [Natural Earth](https://www.naturalearthdata.com/) (Admin 0 – Countries, 1:50m scale). Natural Earth data is in the public domain.
+
 ## 📄 License
 
 This project is licensed under the MIT License.
