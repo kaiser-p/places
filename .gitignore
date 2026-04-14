@@ -32,6 +32,9 @@ src/data/world.json
 .env.local
 .env.*.local
 
+# Claude Code
+CLAUDE.md
+
 # Playwright
 test-results/
 playwright-report/
