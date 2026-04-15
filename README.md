@@ -78,6 +78,21 @@ A modern, interactive map application to track your travels, manage visited citi
     -- Create Policy
     CREATE POLICY "Users can manage their own places" ON places
       FOR ALL USING (auth.uid() = user_id);
+
+    -- Profiles table (for usernames and share links)
+    CREATE TABLE profiles (
+      id uuid REFERENCES auth.users(id) PRIMARY KEY,
+      username text UNIQUE NOT NULL
+    );
+
+    ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+    CREATE POLICY "Users can manage their own profile" ON profiles
+      FOR ALL USING (auth.uid() = id);
+
+    -- Public read access needed for share link resolution
+    CREATE POLICY "Profiles are publicly readable" ON profiles
+      FOR SELECT USING (true);
     ```
 
 5.  **Start the development server**:

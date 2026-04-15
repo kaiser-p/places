@@ -132,9 +132,6 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       zoom: 1.5
     });
 
-    // Expose map to window for testing
-    (window as any).map = map.current;
-
     return () => {
       if (map.current) {
         map.current.remove();

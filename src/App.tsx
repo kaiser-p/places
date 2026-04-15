@@ -39,13 +39,16 @@ function App() {
   const [newUsername, setNewUsername] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isSyncSuccess, setIsSyncSuccess] = useState(false);
+  const [hasCloudData, setHasCloudData] = useState(false);
 
-  const [myCities, setMyCities] = useState<CityWithId[]>(
-    initialCities.map(c => ({ ...c, id: crypto.randomUUID() }))
-  );
-  const [myLandmarks, setMyLandmarks] = useState<LandmarkWithId[]>(
-    initialLandmarks.map(l => ({ ...l, id: crypto.randomUUID() }))
-  );
+  const [myCities, setMyCities] = useState<CityWithId[]>(() => {
+    const isShared = window.location.pathname.split('/').filter(Boolean).length > 1;
+    return isShared ? [] : initialCities.map(c => ({ ...c, id: crypto.randomUUID() }));
+  });
+  const [myLandmarks, setMyLandmarks] = useState<LandmarkWithId[]>(() => {
+    const isShared = window.location.pathname.split('/').filter(Boolean).length > 1;
+    return isShared ? [] : initialLandmarks.map(l => ({ ...l, id: crypto.randomUUID() }));
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -116,13 +119,8 @@ function App() {
     }
   }, [session, isReadOnly]);
 
-  const fetchUserPlaces = async (userId?: string) => {
-    const query = supabase.from('places').select('*');
-    if (userId) {
-      query.eq('user_id', userId);
-    }
-
-    const { data, error } = await query;
+  const fetchUserPlaces = async (userId: string) => {
+    const { data, error } = await supabase.from('places').select('*').eq('user_id', userId);
     
     if (error) {
       console.error('Error fetching places:', error);
@@ -132,19 +130,20 @@ function App() {
     if (data) {
       const cities = data
         .filter(p => p.type === 'city')
-        .map(p => ({ 
-          id: p.id, 
-          name: p.name, 
-          coords: p.coords as [number, number], 
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          coords: p.coords as [number, number],
           countryCode: p.country_code || '',
           size: p.size as 'small' | 'medium' | 'large' | undefined
         }));
       const landmarks = data
         .filter(p => p.type === 'landmark')
         .map(p => ({ id: p.id, name: p.name, coords: p.coords as [number, number] }));
-      
+
       setMyCities(cities);
       setMyLandmarks(landmarks);
+      if (data.length > 0) setHasCloudData(true);
     }
   };
 
@@ -224,6 +223,13 @@ function App() {
         coords: l.coords 
       }))
     ];
+
+    const { error: deleteError } = await supabase.from('places').delete().eq('user_id', session.user.id);
+    if (deleteError) {
+      alert('Sync failed: ' + deleteError.message);
+      setIsSyncing(false);
+      return;
+    }
 
     const { error } = await supabase.from('places').insert(placesToUpload);
     if (error) alert('Sync failed: ' + error.message);
@@ -349,12 +355,12 @@ function App() {
             {isReadOnly ? `${viewingUsername}'s World` : 'My Places'}
           </h1>
           <p className="text-gray-400 text-sm mb-6">
-            {isReadOnly ? `Exploring the travels of ${viewingUsername}.` : 'A mockup of your world travels and highlights.'}
+            {isReadOnly ? `Exploring the travels of ${viewingUsername}.` : session ? 'Your world travels and highlights.' : 'A mockup of your world travels and highlights.'}
           </p>
           
           <div className="space-y-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+              <div className="w-4 h-4 rounded-full" style={{ background: 'radial-gradient(circle, #ffe066 40%, #f97316 100%)', boxShadow: '0 0 4px rgba(249, 115, 22, 0.7)' }} />
               <div className="flex flex-col">
                 <span className="text-sm font-medium flex items-center gap-1.5">
                   <MapPin size={14} className="text-orange-500" /> Cities
@@ -520,16 +526,18 @@ function App() {
                       {isCopied ? <Plus size={12} className="rotate-45" /> : <Globe size={12} />}
                       {!myUsername ? 'Set Username to Share' : (isCopied ? 'Copied URL!' : 'Copy Share Link')}
                     </button>
-                    <button 
-                      onClick={syncLocalToCloud}
-                      disabled={isSyncing || isSyncSuccess}
-                      className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                        isSyncSuccess ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-400 hover:text-green-500 hover:bg-white/10'
-                      }`}
-                    >
-                      {isSyncing ? <Loader2 size={12} className="animate-spin" /> : (isSyncSuccess ? <Plus size={12} className="rotate-45" /> : <Globe size={12} />)}
-                      {isSyncSuccess ? 'Synced Successfully!' : 'Sync Local to Account'}
-                    </button>
+                    {!hasCloudData && (
+                      <button
+                        onClick={syncLocalToCloud}
+                        disabled={isSyncing || isSyncSuccess}
+                        className={`w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                          isSyncSuccess ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-400 hover:text-green-500 hover:bg-white/10'
+                        }`}
+                      >
+                        {isSyncing ? <Loader2 size={12} className="animate-spin" /> : (isSyncSuccess ? <Plus size={12} className="rotate-45" /> : <Globe size={12} />)}
+                        {isSyncSuccess ? 'Synced Successfully!' : 'Sync Local to Account'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
