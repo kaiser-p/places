@@ -14,12 +14,12 @@ A modern, interactive map application to track your travels, manage visited citi
 -   **City & Landmark Management**: Add places via search (Nominatim) and organize them in a sidebar.
 -   **Automatic City Sizing**: Cities are automatically categorized as **Large**, **Medium**, or **Small** based on their global importance and type, with proportional marker sizes.
 -   **Country Highlighting**: Automatically highlights the countries of all added cities.
--   **Homogenous Mode**: A unique visualization feature that merges the geometries of visited countries to remove internal borders.
+-   **Homogenous Mode**: Visited country geometries are merged to remove internal borders, giving a clean single-shape visualization.
+-   **Shareable Maps**: Each user gets a public link (`/places/username`) to share their map with anyone.
 -   **Supabase Integration**:
     -   Secure user authentication (Login/Sign Up).
     -   Cloud synchronization of your places across devices.
-    -   Local-first mockup mode for quick testing.
--   **Customizable View**: Toggle map labels (names) on and off for a cleaner aesthetic.
+    -   Local-first mockup mode for quick testing without an account.
 
 ## 🚀 Tech Stack
 
@@ -29,7 +29,6 @@ A modern, interactive map application to track your travels, manage visited citi
 -   **Geospatial Ops**: [Turf.js](https://turfjs.org/)
 -   **Backend/Auth**: [Supabase](https://supabase.com/)
 -   **Build Tool**: [Vite](https://vitejs.dev/)
--   **Testing**: [Playwright](https://playwright.dev/)
 
 ## 🛠️ Getting Started
 
@@ -93,24 +92,16 @@ A modern, interactive map application to track your travels, manage visited citi
     -- Public read access needed for share link resolution
     CREATE POLICY "Profiles are publicly readable" ON profiles
       FOR SELECT USING (true);
+
+    -- Public read access needed for shared maps
+    CREATE POLICY "Places are publicly readable" ON places
+      FOR SELECT USING (true);
     ```
 
 5.  **Start the development server**:
     ```bash
     npm run dev
     ```
-
-## 🧪 Testing
-
-The project uses Playwright for end-to-end testing.
-
-```bash
-# Run tests
-npx playwright test
-
-# Run tests with UI
-npx playwright test --ui
-```
 
 ## 📦 Deployment
 
