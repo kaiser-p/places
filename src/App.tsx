@@ -198,6 +198,8 @@ function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setIsUserMenuOpen(false);
+    setIsSidebarOpen(false);
+    setHasCloudData(false);
     // Reset to mockup data on logout
     setMyCities(initialCities.map(c => ({ ...c, id: crypto.randomUUID() })));
     setMyLandmarks(initialLandmarks.map(l => ({ ...l, id: crypto.randomUUID() })));

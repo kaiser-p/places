@@ -13,6 +13,9 @@ interface MapProps {
   landmarks: Landmark[];
 }
 
+const escapeHtml = (str: string) =>
+  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -174,7 +177,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       
       el.addEventListener('mouseenter', () => {
         hoverPopup.setLngLat([landmark.coords[1], landmark.coords[0]])
-          .setHTML(`<div class="text-xs font-bold px-1">${landmark.name}</div>`)
+          .setHTML(`<div class="text-xs font-bold px-1">${escapeHtml(landmark.name)}</div>`)
           .addTo(map.current!);
       });
 
@@ -185,7 +188,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       el.addEventListener('click', () => {
         new maplibregl.Popup({ offset: 10 })
           .setLngLat([landmark.coords[1], landmark.coords[0]])
-          .setHTML(`<b>${landmark.name}</b><br>Landmark`)
+          .setHTML(`<b>${escapeHtml(landmark.name)}</b><br>Landmark`)
           .addTo(map.current!);
       });
       
@@ -225,7 +228,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
 
       el.addEventListener('mouseenter', () => {
         hoverPopup.setLngLat([city.coords[1], city.coords[0]])
-          .setHTML(`<div class="text-xs font-bold px-1">${city.name}</div>`)
+          .setHTML(`<div class="text-xs font-bold px-1">${escapeHtml(city.name)}</div>`)
           .addTo(map.current!);
       });
 
@@ -236,7 +239,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       el.addEventListener('click', () => {
         new maplibregl.Popup({ offset: offset })
           .setLngLat([city.coords[1], city.coords[0]])
-          .setHTML(`<b>${city.name}</b><br>City`)
+          .setHTML(`<b>${escapeHtml(city.name)}</b><br>City`)
           .addTo(map.current!);
       });
       
