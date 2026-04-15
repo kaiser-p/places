@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Map from './components/Map';
-import { MapPin, Landmark as LandmarkIcon, Globe, Layers, Type, Menu, X, Trash2, Plus, Loader2, User, LogOut } from 'lucide-react';
+import { MapPin, Landmark as LandmarkIcon, Globe, Menu, X, Trash2, Plus, Loader2, User, LogOut } from 'lucide-react';
 import { cities as initialCities, landmarks as initialLandmarks } from './data/mockData';
 import type { City, Landmark as LandmarkType } from './data/mockData';
 import { supabase } from './lib/supabase';
@@ -21,8 +21,6 @@ const getFlagEmoji = (countryCode: string) => {
 };
 
 function App() {
-  const [isHomogenous, setIsHomogenous] = useState(true);
-  const [showLabels, setShowLabels] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   
@@ -384,37 +382,6 @@ function App() {
             </div>
           </div>
 
-          {/* Map Settings in Legend */}
-          <div className="space-y-4 pt-6 border-t border-white/10 mb-8">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Map Configuration</h3>
-            
-            <div 
-              className="flex items-center justify-between cursor-pointer group"
-              onClick={() => setIsHomogenous(!isHomogenous)}
-            >
-              <div className="flex items-center gap-2">
-                <Layers size={14} className={`transition-colors ${isHomogenous ? 'text-green-500' : 'text-gray-500'}`} />
-                <span className="text-xs font-semibold">Homogenous</span>
-              </div>
-              <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isHomogenous ? 'bg-green-500' : 'bg-gray-700'}`}>
-                <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isHomogenous ? 'translate-x-4' : 'translate-x-0'}`} />
-              </div>
-            </div>
-
-            <div 
-              className="flex items-center justify-between cursor-pointer group"
-              onClick={() => setShowLabels(!showLabels)}
-            >
-              <div className="flex items-center gap-2">
-                <Type size={14} className={`transition-colors ${showLabels ? 'text-green-500' : 'text-gray-500'}`} />
-                <span className="text-xs font-semibold">Labels</span>
-              </div>
-              <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${showLabels ? 'bg-green-500' : 'bg-gray-700'}`}>
-                <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${showLabels ? 'translate-x-4' : 'translate-x-0'}`} />
-              </div>
-            </div>
-          </div>
-
           {isReadOnly && (
             <button 
               onClick={() => {
@@ -588,7 +555,7 @@ function App() {
         )}
 
         {/* Main Map */}
-        <Map isHomogenous={isHomogenous} showLabels={showLabels} cities={myCities} landmarks={myLandmarks} />
+        <Map isHomogenous={true} showLabels={false} cities={myCities} landmarks={myLandmarks} />
       </div>
 
       {/* Right-hand Sidebar */}

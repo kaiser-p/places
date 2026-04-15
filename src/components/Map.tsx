@@ -203,8 +203,8 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       el.style.width = sizePx;
       el.style.height = sizePx;
       el.style.borderRadius = '50%';
-      el.style.backgroundColor = 'orange';
-      el.style.boxShadow = `0 0 ${city.size === 'large' ? '8px' : city.size === 'small' ? '4px' : '6px'} rgba(249, 115, 22, 0.6)`;
+      el.style.background = 'radial-gradient(circle, #ffe066 40%, #f97316 100%)';
+      el.style.boxShadow = `0 0 ${city.size === 'large' ? '4px' : city.size === 'small' ? '2px' : '3px'} rgba(249, 115, 22, 0.7)`;
 
       // Ensure small markers are still easily clickable
       if (city.size === 'small') {
