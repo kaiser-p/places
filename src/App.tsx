@@ -338,7 +338,7 @@ function App() {
   return (
     <div className="relative w-full h-screen bg-[#191a1a] overflow-hidden">
       {/* Sidebar Toggle Button */}
-      {!isReadOnly && (
+      {session && !isReadOnly && (
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="absolute top-6 right-6 z-[1001] p-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full shadow-2xl text-white hover:bg-white/10 transition-colors"
