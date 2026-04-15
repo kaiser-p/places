@@ -70,8 +70,8 @@ function App() {
 
   // Handle Share URL
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shareUser = params.get('share');
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const shareUser = pathParts.length > 1 ? pathParts[1] : null;
     if (shareUser) {
       handleSharedMap(shareUser);
     }
@@ -332,12 +332,14 @@ function App() {
   return (
     <div className="relative w-full h-screen bg-[#191a1a] overflow-hidden">
       {/* Sidebar Toggle Button */}
-      <button 
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="absolute top-6 right-6 z-[1001] p-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full shadow-2xl text-white hover:bg-white/10 transition-colors"
-      >
-        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
+      {!isReadOnly && (
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="absolute top-6 right-6 z-[1001] p-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full shadow-2xl text-white hover:bg-white/10 transition-colors"
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      )}
 
       {/* Main Content Area */}
       <div className="relative w-full h-full overflow-hidden">
@@ -385,7 +387,7 @@ function App() {
           {isReadOnly && (
             <button 
               onClick={() => {
-                window.location.href = window.location.pathname;
+                window.location.href = '/places/';
               }}
               className="w-full bg-white/10 hover:bg-white/20 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2"
             >
@@ -395,7 +397,7 @@ function App() {
         </div>
 
         {/* User Menu */}
-        <div className="absolute top-6 right-20 z-[1001]">
+        {!isReadOnly && <div className="absolute top-6 right-20 z-[1001]">
           <button 
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
             className="p-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full shadow-2xl text-white hover:bg-white/10 transition-colors flex items-center justify-center"
@@ -504,7 +506,7 @@ function App() {
                           alert('Please set a username first');
                           return;
                         }
-                        const url = `${window.location.origin}${window.location.pathname}?share=${myUsername}`;
+                        const url = `${window.location.origin}/places/${myUsername}`;
                         navigator.clipboard.writeText(url);
                         setIsCopied(true);
                         setTimeout(() => setIsCopied(false), 2000);
@@ -533,10 +535,10 @@ function App() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Login Splash Overlay */}
-        {!session && (
+        {!session && !isReadOnly && (
           <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
             <div className="bg-[#000000] p-20 rounded-[48px] border border-white/10 flex flex-col items-center animate-in fade-in zoom-in duration-700 pointer-events-auto shadow-[0_0_50px_rgba(0,0,0,0.8)]">
               <img src={logoDark} alt="Places" className="w-96 h-auto mb-10" />
