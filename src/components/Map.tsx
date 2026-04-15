@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import worldData from '../data/world.json';
@@ -17,6 +17,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Memoize visited country codes and merged geometry
   const visitedCountryCodes = useMemo(() => 
@@ -132,6 +133,8 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
       zoom: 1.5
     });
 
+    map.current.on('load', () => setMapLoaded(true));
+
     return () => {
       if (map.current) {
         map.current.remove();
@@ -243,7 +246,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
 
   // Update styling when labels toggle changes
   useEffect(() => {
-    if (map.current && map.current.isStyleLoaded()) {
+    if (map.current && mapLoaded) {
       map.current.setLayoutProperty(
         'raster-layer-nolabels',
         'visibility',
@@ -255,11 +258,11 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
         showLabels ? 'visible' : 'none'
       );
     }
-  }, [showLabels]);
+  }, [showLabels, mapLoaded]);
 
   // Update styling and data when homogenous mode changes or cities change
   useEffect(() => {
-    if (map.current && map.current.isStyleLoaded()) {
+    if (map.current && mapLoaded) {
       const source = map.current.getSource('visited-countries-geo') as maplibregl.GeoJSONSource;
       if (!source) return;
 
@@ -284,7 +287,7 @@ const Map = ({ isHomogenous, showLabels, cities, landmarks }: MapProps) => {
         map.current.setPaintProperty('visited-countries-outline', 'line-opacity', 0.5);
       }
     }
-  }, [isHomogenous, mergedVisitedGeo, visitedCountryCodes]);
+  }, [isHomogenous, mergedVisitedGeo, visitedCountryCodes, mapLoaded]);
 
   return <div ref={mapContainer} className="map-container" />;
 };
